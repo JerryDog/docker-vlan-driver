@@ -1,0 +1,29 @@
+{
+	"ImportPath": "github.com/anarcher/docker-vlan-driver",
+	"GoVersion": "go1.5",
+	"Deps": [
+		{
+			"ImportPath": "github.com/bradfitz/http2",
+			"Rev": "f8202bc903bda493ebba4aa54922d78430c2c42f"
+		},
+		{
+			"ImportPath": "github.com/docker/libnetwork/drivers/remote/api",
+			"Comment": "v0.2-385-gdc52820",
+			"Rev": "dc52820147f40fe424c8959987af3b396f842639"
+		},
+		{
+			"ImportPath": "github.com/labstack/echo",
+			"Comment": "v1.1.0-35-gdce83db",
+			"Rev": "dce83db3442988cb8aaa5662a6360ab128897b03"
+		},
+		{
+			"ImportPath": "github.com/labstack/gommon/color",
+			"Comment": "v0.0.3-7-g3c61341",
+			"Rev": "3c613419957bbd5afea3fc87bbc0f9f2dca19196"
+		},
+		{
+			"ImportPath": "golang.org/x/net/websocket",
+			"Rev": "db8e4de5b2d6653f66aea53094624468caad15d2"
+		}
+	]
+}
