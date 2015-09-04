@@ -29,11 +29,11 @@ func TestEndpointCreate(t *testing.T) {
 
 	// Tear down
 	/*
-		if err := exec.Command("ip", "link", "delete", "veth"+endpoint.EndpointShortID).Run(); err != nil {
+			if err := exec.Command("ip", "link", "delete", "veth"+endpoint.EndpointShortID).Run(); err != nil {
+				t.Error(err)
+			}
+		if err := exec.Command("ip", "netns", "delete", endpoint.EndpointShortID).Run(); err != nil {
 			t.Error(err)
 		}
 	*/
-	if err := exec.Command("ip", "netns", "delete", endpoint.EndpointShortID).Run(); err != nil {
-		t.Error(err)
-	}
 }

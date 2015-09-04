@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/docker/libnetwork/drivers/remote/api"
 	"github.com/labstack/echo"
@@ -80,25 +79,18 @@ func NetworkDriverCreateEndpoint(c *echo.Context) error {
 	}
 	network.Endpoints[endpointID] = endpoint
 
-	go func() {
-		//TODO
-		time.Sleep(10 * time.Second)
-		if err := endpoint.Activate(network); err != nil {
-			fmt.Println(err)
-		}
-	}()
-
 	//TODO
 	resp := api.CreateEndpointResponse{}
-	resp.Interfaces = []*api.EndpointInterface{
-		&api.EndpointInterface{
-			ID:         0,
-			Address:    "10.1.1.1/24",
-			MacAddress: "4a:6a:c1:57:af:98",
-		},
-	}
-
-	fmt.Println("resp:", resp)
+	/*
+			resp.Interfaces = []*api.EndpointInterface{
+				&api.EndpointInterface{
+					ID:         0,
+					Address:    "10.1.1.1/24",
+					MacAddress: "4a:6a:c1:57:af:98",
+				},
+			}
+		fmt.Println("resp:", resp)
+	*/
 
 	return c.JSON(http.StatusOK, resp)
 }
@@ -153,19 +145,22 @@ func NetworkDriverJoin(c *echo.Context) error {
 		return _error(c, fmt.Errorf("endpoint id not found"))
 	}
 
-	err := endpoint.Join()
+	err := endpoint.Join(network, req.SandboxKey)
 	if err != nil {
 		return _error(c, err)
 	}
 
 	resp := api.JoinResponse{}
-	resp.InterfaceNames = []*api.InterfaceName{
-		&api.InterfaceName{
-			SrcName:   "veth1",
-			DstPrefix: "eth",
-		},
-	}
-	resp.Gateway = "10.1.1.1"
+	//TODO:
+	/*
+		resp.InterfaceNames = []*api.InterfaceName{
+			&api.InterfaceName{
+				SrcName:   "veth1",
+				DstPrefix: "eth",
+			},
+		}
+		resp.Gateway = "10.1.1.1"
+	*/
 
 	return c.JSON(http.StatusOK, resp)
 }

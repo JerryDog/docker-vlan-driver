@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -18,10 +21,11 @@ type Endpoint struct {
 	IPStr           string
 	SubnetStr       string
 	SandboxKey      string
+	NetNS           string
 }
 
 func NewEndpoint(req *api.CreateEndpointRequest) *Endpoint {
-	e := &Endpoint{req, "", "", "", "", ""}
+	e := &Endpoint{req, "", "", "", "", "", ""}
 	if len(e.EndpointID) < 5 {
 		e.EndpointShortID = e.EndpointID
 	} else {
@@ -34,40 +38,41 @@ func (e *Endpoint) Create(network *Network) error {
 
 	e.updateNetworkInfo(network)
 
-	ethLink, err := netlink.LinkByName(network.Eth)
-	if err != nil {
-		fmt.Println("[Err] LinkByName:", err)
-		return err
+	return nil
+}
+
+func (e *Endpoint) makeIface(network *Network, netns string) error {
+	if vethLink, _ := netlink.LinkByName("veth" + e.EndpointShortID); vethLink != nil {
+		log.Println("veth"+e.EndpointShortID, "already exist")
+	} else {
+		ethLink, err := netlink.LinkByName(network.Eth)
+		if err != nil {
+			fmt.Println("[Err] LinkByName:", err)
+			return err
+		}
+
+		attrs := netlink.NewLinkAttrs()
+		attrs.Name = "veth" + e.EndpointShortID
+		attrs.ParentIndex = ethLink.Attrs().Index
+
+		vlan := &netlink.Vlan{
+			attrs, network.VLanID,
+		}
+
+		if err := netlink.LinkAdd(vlan); err != nil {
+			log.Println("Err: ", err, "LinkAdd")
+			return err
+		}
 	}
 
-	attrs := netlink.NewLinkAttrs()
-	attrs.Name = "veth" + e.EndpointShortID
-	attrs.ParentIndex = ethLink.Attrs().Index
-
-	vlan := &netlink.Vlan{
-		attrs, network.VLanID,
-	}
-
-	if err := netlink.LinkAdd(vlan); err != nil {
-		fmt.Println("[Err] LinkAdd:", err)
-		return err
-	}
-
-	cmd := exec.Command("ip", "netns", "add", e.EndpointShortID)
-	if err := cmd.Run(); err != nil {
-		fmt.Println("cmd", cmd, "err", err)
-		return err
-	}
-
-	cmd = exec.Command("ip", "link", "set", "veth"+e.EndpointShortID, "netns", e.EndpointShortID)
-	if err := cmd.Run(); err != nil {
-		fmt.Println("cmd", cmd, "err", err)
+	if err := exec.Command("ip", "link", "set", "veth"+e.EndpointShortID, "netns", netns).Run(); err != nil {
+		log.Println("Err: ", err, "LinkSet NS")
 		return err
 	}
 	return nil
 }
 
-func (e *Endpoint) Activate(network *Network) error {
+func (e *Endpoint) activate(network *Network, netns string) error {
 
 	networkInfo, err := e.getNetworkInfoFromDocker(network.NetworkID)
 	if err != nil {
@@ -82,7 +87,7 @@ func (e *Endpoint) Activate(network *Network) error {
 
 	fmt.Println("Activate: name:", e.Name, "endpointID", e.EndpointID)
 
-	_name := strings.Split(e.Name, "/")
+	_name := strings.Split(e.Name, "-")
 	e.IPStr = strings.Replace(_name[0], "_", ".", -1)
 	e.SubnetStr = _name[1]
 	ipstr := e.IPStr + "/" + e.SubnetStr
@@ -90,7 +95,7 @@ func (e *Endpoint) Activate(network *Network) error {
 	fmt.Println("ip:", e.IPStr, "subnet:", e.SubnetStr)
 
 	cmd := []string{
-		"netns", "exec", e.EndpointShortID,
+		"netns", "exec", netns,
 		"ip", "addr", "add", ipstr, "dev", "veth" + e.EndpointShortID}
 
 	if err := exec.Command("ip", cmd...).Run(); err != nil {
@@ -98,7 +103,7 @@ func (e *Endpoint) Activate(network *Network) error {
 	}
 
 	cmd2 := []string{
-		"netns", "exec", e.EndpointShortID,
+		"netns", "exec", netns,
 		"ip", "link", "set", "veth" + e.EndpointShortID, "up"}
 
 	if err := exec.Command("ip", cmd2...).Run(); err != nil {
@@ -152,12 +157,27 @@ func (e *Endpoint) Delete() error {
 	return nil
 }
 
-func (e *Endpoint) Join() error {
-	cmd := []string{
-		"netns", "exec", e.EndpointShortID,
-		"ip", "link", "add", "veth0", "peer", "name", "veth1",
+func (e *Endpoint) Join(network *Network, sandboxKey string) error {
+	e.SandboxKey = sandboxKey
+	if e.SandboxKey == "" {
+		return fmt.Errorf("SandboxKey is empty!")
 	}
-	if err := exec.Command("ip", cmd...).Run(); err != nil {
+
+	e.NetNS = filepath.Base(e.SandboxKey)
+	log.Println("netns:", e.NetNS)
+
+	//ln -sf to /var/run/netns
+	if err := os.MkdirAll("/var/run/netns", 0777); err != nil {
+		return err
+	}
+	if err := exec.Command("ln", "-sf", e.SandboxKey, "/var/run/netns").Run(); err != nil {
+		return err
+	}
+
+	if err := e.makeIface(network, e.NetNS); err != nil {
+		return err
+	}
+	if err := e.activate(network, e.NetNS); err != nil {
 		return err
 	}
 
