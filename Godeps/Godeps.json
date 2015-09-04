@@ -12,6 +12,10 @@
 			"Rev": "dc52820147f40fe424c8959987af3b396f842639"
 		},
 		{
+			"ImportPath": "github.com/fsouza/go-dockerclient",
+			"Rev": "134c9ac46b51ace9135c81efe9aa9895d346c1cf"
+		},
+		{
 			"ImportPath": "github.com/labstack/echo",
 			"Comment": "v1.1.0-35-gdce83db",
 			"Rev": "dce83db3442988cb8aaa5662a6360ab128897b03"
@@ -20,6 +24,10 @@
 			"ImportPath": "github.com/labstack/gommon/color",
 			"Comment": "v0.0.3-7-g3c61341",
 			"Rev": "3c613419957bbd5afea3fc87bbc0f9f2dca19196"
+		},
+		{
+			"ImportPath": "github.com/vishvananda/netlink",
+			"Rev": "1e2e08e8a2dcdacaae3f14ac44c5cfa31361f270"
 		},
 		{
 			"ImportPath": "golang.org/x/net/websocket",

@@ -32,7 +32,7 @@ func NetworkDriverCreateNetwork(c *echo.Context) error {
 		return _error(c, err)
 	}
 
-	network := &Network{req}
+	network := NewNetwork(&req)
 	if err := network.Create(); err != nil {
 		return _error(c, err)
 	}
@@ -63,8 +63,26 @@ func NetworkDriverCreateEndpoint(c *echo.Context) error {
 	if err := _json(c, &req); err != nil {
 		return _error(c, err)
 	}
-	fmt.Println("CreateEndpointRequest:", req)
-	return c.JSON(http.StatusOK, api.CreateEndpointResponse{})
+
+	endpointID := req.EndpointID
+	networkID := req.NetworkID
+
+	network, ok := Networks[networkID]
+	if !ok {
+		return _error(c, fmt.Errorf("network not exist"))
+	}
+
+	endpoint := NewEndpoint(&req)
+	if err := endpoint.Create(network); err != nil {
+		return _error(c, err)
+	}
+	network.Endpoints[endpointID] = endpoint
+
+	if err := endpoint.Create(network); err != nil {
+		return _error(c, err)
+	}
+	resp = api.CreateEndpointResponse{}
+	return c.JSON(http.StatusOK, resp)
 }
 
 func NetworkDriverEndpointOperInfo(c *echo.Context) error {
@@ -72,7 +90,7 @@ func NetworkDriverEndpointOperInfo(c *echo.Context) error {
 	if err := _json(c, &req); err != nil {
 		return _error(c, err)
 	}
-	fmt.Println("EndpointInfoResponse:", req)
+
 	return c.JSON(http.StatusOK, api.EndpointInfoResponse{})
 }
 
@@ -81,7 +99,21 @@ func NetworkDriverDeleteEndpoint(c *echo.Context) error {
 	if err := _json(c, &req); err != nil {
 		return _error(c, err)
 	}
-	fmt.Println("DeleteEndpoint:", req)
+
+	network, ok := Networks[req.NetworkID]
+	if !ok {
+		return _error(c, fmt.Errorf("network id not found"))
+	}
+	endpoint := network.Endpoints[req.EndpointID]
+	if !ok {
+		return _error(c, fmt.Errorf("endpoint id not found"))
+	}
+
+	if err := endpoint.Delete(); err != nil {
+		return _error(c, err)
+	}
+
+	delete(network.Endpoints, req.EndpointID)
 	return c.JSON(http.StatusOK, api.DeleteEndpointResponse{})
 }
 
