@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/docker/libnetwork/drivers/remote/api"
 	"github.com/labstack/echo"
@@ -15,6 +16,7 @@ func _json(c *echo.Context, req interface{}) error {
 }
 
 func _error(c *echo.Context, err error) error {
+	fmt.Println("_error:", err)
 	return c.JSON(http.StatusInternalServerError, api.Response{Err: err.Error()})
 }
 
@@ -26,7 +28,7 @@ func PluginActivate(c *echo.Context) error {
 }
 
 func NetworkDriverCreateNetwork(c *echo.Context) error {
-	req := api.CreateNetworkRequest{}
+	var req api.CreateNetworkRequest
 	err := _json(c, &req)
 	if err != nil {
 		return _error(c, err)
@@ -46,7 +48,7 @@ func NetworkDriverCreateNetwork(c *echo.Context) error {
 }
 
 func NetworkDriverDeleteNetwork(c *echo.Context) error {
-	req := api.DeleteEndpointRequest{}
+	var req api.DeleteEndpointRequest
 	err := _json(c, &req)
 	if err != nil {
 		return _error(c, err)
@@ -59,7 +61,7 @@ func NetworkDriverDeleteNetwork(c *echo.Context) error {
 }
 
 func NetworkDriverCreateEndpoint(c *echo.Context) error {
-	req := api.CreateEndpointRequest{}
+	var req api.CreateEndpointRequest
 	if err := _json(c, &req); err != nil {
 		return _error(c, err)
 	}
@@ -78,15 +80,33 @@ func NetworkDriverCreateEndpoint(c *echo.Context) error {
 	}
 	network.Endpoints[endpointID] = endpoint
 
-	if err := endpoint.Create(network); err != nil {
-		return _error(c, err)
+	go func() {
+		//TODO
+		time.Sleep(10 * time.Second)
+		if err := endpoint.Activate(network); err != nil {
+			fmt.Println(err)
+		}
+	}()
+
+	//TODO
+	resp := api.CreateEndpointResponse{}
+	resp.Interfaces = []*api.EndpointInterface{
+		&api.EndpointInterface{
+			ID:         0,
+			Address:    "10.1.1.1/24",
+			MacAddress: "4a:6a:c1:57:af:98",
+		},
 	}
-	resp = api.CreateEndpointResponse{}
+
+	fmt.Println("resp:", resp)
+
 	return c.JSON(http.StatusOK, resp)
 }
 
 func NetworkDriverEndpointOperInfo(c *echo.Context) error {
-	req := api.EndpointInfoRequest{}
+	fmt.Println("NetworkDriverEndpointOperInfo.....")
+
+	var req api.EndpointInfoRequest
 	if err := _json(c, &req); err != nil {
 		return _error(c, err)
 	}
@@ -95,7 +115,7 @@ func NetworkDriverEndpointOperInfo(c *echo.Context) error {
 }
 
 func NetworkDriverDeleteEndpoint(c *echo.Context) error {
-	req := api.DeleteEndpointRequest{}
+	var req api.DeleteEndpointRequest
 	if err := _json(c, &req); err != nil {
 		return _error(c, err)
 	}
@@ -118,19 +138,58 @@ func NetworkDriverDeleteEndpoint(c *echo.Context) error {
 }
 
 func NetworkDriverJoin(c *echo.Context) error {
-	req := api.JoinRequest{}
+	var req api.JoinRequest
 	if err := _json(c, &req); err != nil {
 		return _error(c, err)
 	}
 	fmt.Println("Join:", req)
-	return c.JSON(http.StatusOK, api.JoinResponse{})
+
+	network, ok := Networks[req.NetworkID]
+	if !ok {
+		return _error(c, fmt.Errorf("network id not found"))
+	}
+	endpoint := network.Endpoints[req.EndpointID]
+	if !ok {
+		return _error(c, fmt.Errorf("endpoint id not found"))
+	}
+
+	err := endpoint.Join()
+	if err != nil {
+		return _error(c, err)
+	}
+
+	resp := api.JoinResponse{}
+	resp.InterfaceNames = []*api.InterfaceName{
+		&api.InterfaceName{
+			SrcName:   "veth1",
+			DstPrefix: "eth",
+		},
+	}
+	resp.Gateway = "10.1.1.1"
+
+	return c.JSON(http.StatusOK, resp)
 }
 
 func NetworkDriverLeave(c *echo.Context) error {
-	req := api.LeaveRequest{}
+	var req api.LeaveRequest
 	if err := _json(c, &req); err != nil {
 		return _error(c, err)
 	}
+
+	network, ok := Networks[req.NetworkID]
+	if !ok {
+		return _error(c, fmt.Errorf("network id not found"))
+	}
+	endpoint := network.Endpoints[req.EndpointID]
+	if !ok {
+		return _error(c, fmt.Errorf("endpoint id not found"))
+	}
+
+	err := endpoint.Leave()
+	if err != nil {
+		return _error(c, err)
+	}
+
 	fmt.Println("Leave:", req)
 	return c.JSON(http.StatusOK, api.LeaveResponse{})
 }
