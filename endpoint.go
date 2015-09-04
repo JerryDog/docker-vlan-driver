@@ -136,14 +136,14 @@ func (e *Endpoint) updateNetworkInfo(network *Network) error {
 	}
 	network.Name = nwInfo.Name
 
-	if name := strings.Split(network.Name, "-"); len(name) > 2 {
+	if name := strings.Split(network.Name, "-"); len(name) >= 2 {
 		network.Eth = name[0]
 		network.VLanID, err = strconv.Atoi(name[1])
 		if err != nil {
 			return err
 		}
 	} else {
-		network.Eth = "eth0"
+		network.Eth = "eth1"
 		network.VLanID = 100
 	}
 
